@@ -1,4 +1,6 @@
 import mongoose, { Schema, Document } from "mongoose";
+import "@/lib/models/Hospital";
+import "@/lib/models/Patient";
 
 export interface IReview extends Document {
   patientId: mongoose.Types.ObjectId;

@@ -29,7 +29,7 @@ export default function HospitalsPage() {
   const [error, setError] = useState("")
 
   useEffect(() => {
-    const token = localStorage.getItem("token")
+    const token = localStorage.getItem("patientToken")
     if (!token) {
       router.push("/patient/login")
       return
@@ -79,7 +79,7 @@ export default function HospitalsPage() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem("token")
+    localStorage.removeItem("patientToken")
     localStorage.removeItem("userType")
     localStorage.removeItem("patientData")
     router.push("/")

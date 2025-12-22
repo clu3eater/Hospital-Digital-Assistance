@@ -4,12 +4,13 @@ import Hospital from "@/lib/models/Hospital";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connect();
 
-    const hospital = await Hospital.findById(params.id).select("-password");
+    const { id } = await params;
+    const hospital = await Hospital.findById(id).select("-password");
 
     if (!hospital) {
       return NextResponse.json(

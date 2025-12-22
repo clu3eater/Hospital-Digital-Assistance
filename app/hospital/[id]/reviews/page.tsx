@@ -2,66 +2,51 @@
 
 import { useEffect, useState } from "react"
 import { Card } from "@/components/ui/card"
-import { Heart, Star, User, ArrowLeft, ThumbsUp } from "lucide-react"
+import { Heart, Star, User, ArrowLeft, ThumbsUp, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 
 interface Review {
-  id: number
-  patientName: string
+  _id: string
+  patientId?: {
+    fullName?: string
+  }
   rating: number
-  review: string
-  date: string
-  helpful: number
+  comment: string
+  createdAt: string
 }
 
 export default function HospitalReviews() {
   const params = useParams()
   const [reviews, setReviews] = useState<Review[]>([])
+  const [averageRating, setAverageRating] = useState(0)
   const [sortBy, setSortBy] = useState("recent")
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Mock reviews data
-    setReviews([
-      {
-        id: 1,
-        patientName: "John D.",
-        rating: 5,
-        review:
-          "Excellent service and very professional doctors. The hospital is clean and well-maintained. Highly recommended!",
-        date: "2024-11-20",
-        helpful: 24,
-      },
-      {
-        id: 2,
-        patientName: "Sarah M.",
-        rating: 4,
-        review: "Good experience overall. The staff was helpful but the wait time was longer than expected.",
-        date: "2024-11-15",
-        helpful: 12,
-      },
-      {
-        id: 3,
-        patientName: "Mike T.",
-        rating: 5,
-        review:
-          "Amazing hospital with state-of-the-art equipment. Dr. Smith was very attentive and explained everything clearly.",
-        date: "2024-11-10",
-        helpful: 18,
-      },
-      {
-        id: 4,
-        patientName: "Emma L.",
-        rating: 4,
-        review: "Very satisfied with the treatment. The only issue was the parking facility could be improved.",
-        date: "2024-11-05",
-        helpful: 8,
-      },
-    ])
-  }, [])
+    if (!params?.id) return
 
-  const averageRating =
-    reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : 0
+    const fetchReviews = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch(`/api/reviews/hospital/${params.id}`)
+        const data = await res.json()
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to load reviews")
+        }
+        setReviews(data.reviews || [])
+        setAverageRating(data.averageRating || 0)
+      } catch (err: any) {
+        setError(err.message || "Failed to load reviews")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchReviews()
+  }, [params?.id])
 
   const ratingDistribution = {
     5: reviews.filter((r) => r.rating === 5).length,
@@ -72,10 +57,10 @@ export default function HospitalReviews() {
   }
 
   const sortedReviews = [...reviews].sort((a, b) => {
-    if (sortBy === "recent") return new Date(b.date).getTime() - new Date(a.date).getTime()
+    if (sortBy === "recent") return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     if (sortBy === "highest") return b.rating - a.rating
     if (sortBy === "lowest") return a.rating - b.rating
-    if (sortBy === "helpful") return b.helpful - a.helpful
+    if (sortBy === "helpful") return 0
     return 0
   })
 
@@ -102,7 +87,7 @@ export default function HospitalReviews() {
           {/* Rating Summary */}
           <Card className="p-8">
             <div className="text-center">
-              <div className="text-5xl font-bold mb-2">{averageRating}</div>
+              <div className="text-5xl font-bold mb-2">{Number(averageRating).toFixed(1)}</div>
               <div className="flex justify-center gap-1 mb-3">
                 {[...Array(5)].map((_, i) => (
                   <Star
@@ -132,7 +117,7 @@ export default function HospitalReviews() {
                     <div
                       className="bg-yellow-400 h-full"
                       style={{
-                        width: `${(ratingDistribution[rating as keyof typeof ratingDistribution] / reviews.length) * 100}%`,
+                        width: `${reviews.length > 0 ? (ratingDistribution[rating as keyof typeof ratingDistribution] / reviews.length) * 100 : 0}%`,
                       }}
                     />
                   </div>
@@ -162,40 +147,46 @@ export default function HospitalReviews() {
 
         {/* Reviews List */}
         <div className="space-y-4">
-          {sortedReviews.map((review) => (
-            <Card key={review.id} className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                    <User className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold">{review.patientName}</h4>
-                    <div className="flex items-center gap-2 mt-1">
-                      <div className="flex gap-1">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`w-4 h-4 ${
-                              i < review.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
-                            }`}
-                          />
-                        ))}
+          {loading && (
+            <Card className="p-6 text-gray-600 flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading reviews…
+            </Card>
+          )}
+          {error && <Card className="p-6 text-red-600">{error}</Card>}
+          {!loading && !error && sortedReviews.length === 0 && <Card className="p-6 text-gray-600">No reviews yet</Card>}
+          {!loading && !error &&
+            sortedReviews.map((review) => (
+              <Card key={review._id} className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <User className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold">{review.patientId?.fullName || "Patient"}</h4>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex gap-1">
+                          {[...Array(5)].map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`w-4 h-4 ${i < review.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-sm text-gray-500">{new Date(review.createdAt).toLocaleDateString()}</span>
                       </div>
-                      <span className="text-sm text-gray-500">{review.date}</span>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <p className="text-gray-700 mb-4">{review.review}</p>
+                <p className="text-gray-700 mb-4 whitespace-pre-line">{review.comment}</p>
 
-              <button className="flex items-center gap-2 text-gray-600 hover:text-blue-600 text-sm">
-                <ThumbsUp className="w-4 h-4" />
-                <span>Helpful ({review.helpful})</span>
-              </button>
-            </Card>
-          ))}
+                <button className="flex items-center gap-2 text-gray-600 hover:text-blue-600 text-sm" disabled>
+                  <ThumbsUp className="w-4 h-4" />
+                  <span>Helpful</span>
+                </button>
+              </Card>
+            ))}
         </div>
       </div>
     </div>

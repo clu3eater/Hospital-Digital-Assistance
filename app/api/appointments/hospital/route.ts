@@ -2,8 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import connect from "@/lib/db";
 import Appointment from "@/lib/models/Appointment";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+
+// Combine appointment date and time string (e.g. "10:30 AM") into a single Date for comparison
+function combineDateTime(dateValue: Date, timeString: string) {
+  const date = new Date(dateValue);
+  const [timePart, meridiem] = (timeString || "").trim().split(" ");
+  const [hoursStr, minutesStr] = (timePart || "00:00").split(":");
+
+  let hours = parseInt(hoursStr || "0", 10);
+  const minutes = parseInt(minutesStr || "0", 10);
+  const upperMeridiem = (meridiem || "AM").toUpperCase();
+
+  if (upperMeridiem === "PM" && hours !== 12) hours += 12;
+  if (upperMeridiem === "AM" && hours === 12) hours = 0;
+
+  date.setHours(hours, minutes, 0, 0);
+  return date;
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,13 +32,43 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const decoded: any = jwt.verify(token, JWT_SECRET);
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (jwtError) {
+      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
+    }
+
     const hospitalId = decoded.hospitalId;
+    if (!hospitalId) {
+      return NextResponse.json({ error: "Invalid token: missing hospitalId" }, { status: 401 });
+    }
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
 
-    const query: any = { hospitalId };
+    // Convert to ObjectId for proper matching
+    const hospitalObjId = new mongoose.Types.ObjectId(hospitalId);
+
+    // Auto-complete past appointments based on date + time
+    const now = new Date();
+    const candidateAppointments = await Appointment.find({
+      hospitalId: hospitalObjId,
+      status: { $in: ["pending", "confirmed"] },
+    });
+
+    const toCompleteIds = candidateAppointments
+      .filter((apt) => {
+        const aptDateTime = combineDateTime(apt.appointmentDate, apt.appointmentTime);
+        return aptDateTime < now;
+      })
+      .map((apt) => apt._id);
+
+    if (toCompleteIds.length > 0) {
+      await Appointment.updateMany({ _id: { $in: toCompleteIds } }, { $set: { status: "completed" } });
+    }
+
+    const query: any = { hospitalId: hospitalObjId };
     if (status) {
       query.status = status;
     }

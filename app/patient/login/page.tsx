@@ -40,7 +40,7 @@ export default function PatientLogin() {
       const data = await response.json()
 
       if (response.ok) {
-        localStorage.setItem("token", data.token)
+        localStorage.setItem("patientToken", data.token)
         localStorage.setItem("userType", "patient")
         localStorage.setItem("patientData", JSON.stringify(data.patient))
         router.push("/patient/dashboard")

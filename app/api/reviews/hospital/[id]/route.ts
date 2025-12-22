@@ -4,12 +4,13 @@ import Review from "@/lib/models/Review";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connect();
 
-    const reviews = await Review.find({ hospitalId: params.id })
+    const { id } = await params;
+    const reviews = await Review.find({ hospitalId: id })
       .populate("patientId", "fullName")
       .sort({ createdAt: -1 });
 

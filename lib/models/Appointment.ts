@@ -1,4 +1,8 @@
 import mongoose, { Schema, Document } from "mongoose";
+// Ensure referenced models are registered before population
+import "@/lib/models/Hospital";
+import "@/lib/models/Doctor";
+import "@/lib/models/Patient";
 
 export interface IAppointment extends Document {
   patientId: mongoose.Types.ObjectId;
@@ -9,6 +13,13 @@ export interface IAppointment extends Document {
   status: "pending" | "confirmed" | "completed" | "cancelled";
   reason: string;
   notes?: string;
+  visitType: "in_person" | "telehealth";
+  meetingUrl?: string;
+  preVisitQuestions?: Array<{
+    question: string;
+    answer?: string;
+  }>;
+  postVisitNotes?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -49,6 +60,32 @@ const AppointmentSchema = new Schema<IAppointment>(
       trim: true,
     },
     notes: {
+      type: String,
+      trim: true,
+    },
+    visitType: {
+      type: String,
+      enum: ["in_person", "telehealth"],
+      default: "in_person",
+    },
+    meetingUrl: {
+      type: String,
+      trim: true,
+    },
+    preVisitQuestions: [
+      {
+        question: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        answer: {
+          type: String,
+          trim: true,
+        },
+      },
+    ],
+    postVisitNotes: {
       type: String,
       trim: true,
     },

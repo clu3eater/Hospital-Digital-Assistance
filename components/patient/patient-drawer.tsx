@@ -35,7 +35,7 @@ export function PatientDrawer({ patientName = "Patient" }: PatientDrawerProps) {
   const router = useRouter()
 
   const handleLogout = () => {
-    localStorage.removeItem("token")
+    localStorage.removeItem("patientToken")
     localStorage.removeItem("userType")
     localStorage.removeItem("patientData")
     router.push("/")

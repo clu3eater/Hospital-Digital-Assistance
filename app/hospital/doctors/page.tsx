@@ -4,53 +4,41 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Plus, Edit2, Trash2, Check, X, Stethoscope, Shield, LogOut } from "lucide-react"
+import { Plus, Edit2, Trash2, Check, X, Stethoscope, Shield, LogOut, PauseCircle, PlayCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 
 interface Doctor {
-  id: number
+  _id: string
   name: string
-  specialty: string
-  qualifications: string
+  specialization: string
+  qualification: string
+  experience: number
   phone: string
   email?: string
+  isActive: boolean
 }
 
 export default function DoctorsManagement() {
   const router = useRouter()
   const [hospitalName, setHospitalName] = useState("Hospital")
-  const [doctors, setDoctors] = useState<Doctor[]>([
-    {
-      id: 1,
-      name: "Dr. John Smith",
-      specialty: "Cardiology",
-      qualifications: "MD, Board Certified",
-      phone: "+1 (555) 111-1111",
-      email: "john.smith@hospital.com",
-    },
-    {
-      id: 2,
-      name: "Dr. Sarah Johnson",
-      specialty: "Neurology",
-      qualifications: "MD, PhD",
-      phone: "+1 (555) 222-2222",
-      email: "sarah.johnson@hospital.com",
-    },
-  ])
+  const [doctors, setDoctors] = useState<Doctor[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const [isAdding, setIsAdding] = useState(false)
-  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [newDoctor, setNewDoctor] = useState({
     name: "",
-    specialty: "",
-    qualifications: "",
+    specialization: "",
+    qualification: "",
+    experience: "",
     phone: "",
     email: "",
   })
 
   useEffect(() => {
-    const token = localStorage.getItem("token")
+    const token = localStorage.getItem("hospitalToken")
     if (!token) {
       router.push("/hospital/login")
       return
@@ -60,7 +48,29 @@ export default function DoctorsManagement() {
     if (hospitalData) {
       setHospitalName(JSON.parse(hospitalData).hospitalName)
     }
+    fetchDoctors(token)
   }, [router])
+
+  const fetchDoctors = async (token: string) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const res = await fetch("/api/doctors/hospital", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load doctors")
+      }
+
+      setDoctors(data.doctors)
+    } catch (err: any) {
+      setError(err.message || "Failed to load doctors")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -70,19 +80,53 @@ export default function DoctorsManagement() {
   const handleAddDoctor = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
+      const token = localStorage.getItem("hospitalToken")
+      if (!token) {
+        router.push("/hospital/login")
+        return
+      }
+
+      const payload = {
+        name: newDoctor.name.trim(),
+        specialization: newDoctor.specialization.trim(),
+        qualification: newDoctor.qualification.trim(),
+        experience: Number(newDoctor.experience) || 0,
+        phone: newDoctor.phone.trim(),
+        email: newDoctor.email.trim(),
+      }
+
       if (editingId) {
-        // Update existing doctor
-        setDoctors(doctors.map((d) => (d.id === editingId ? ({ ...newDoctor, id: editingId } as Doctor) : d)))
+        const res = await fetch("/api/doctors/update", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ doctorId: editingId, ...payload }),
+        })
+
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || "Failed to update doctor")
+
+        setDoctors((prev) => prev.map((d) => (d._id === data.doctor._id ? data.doctor : d)))
         setEditingId(null)
       } else {
-        // Add new doctor
-        const doctor = {
-          id: Date.now(),
-          ...newDoctor,
-        } as Doctor
-        setDoctors([...doctors, doctor])
+        const res = await fetch("/api/doctors/create", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        })
+
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || "Failed to add doctor")
+
+        setDoctors((prev) => [data.doctor, ...prev])
       }
-      setNewDoctor({ name: "", specialty: "", qualifications: "", phone: "", email: "" })
+
+      setNewDoctor({ name: "", specialization: "", qualification: "", experience: "", phone: "", email: "" })
       setIsAdding(false)
     } catch (error) {
       console.error("Failed to add/update doctor:", error)
@@ -92,27 +136,62 @@ export default function DoctorsManagement() {
   const handleEditDoctor = (doctor: Doctor) => {
     setNewDoctor({
       name: doctor.name,
-      specialty: doctor.specialty,
-      qualifications: doctor.qualifications,
+      specialization: doctor.specialization,
+      qualification: doctor.qualification,
+      experience: String(doctor.experience ?? ""),
       phone: doctor.phone,
       email: doctor.email || "",
     })
-    setEditingId(doctor.id)
+    setEditingId(doctor._id)
     setIsAdding(true)
   }
 
-  const handleDeleteDoctor = (id: number) => {
-    setDoctors(doctors.filter((d) => d.id !== id))
+  const handleDeleteDoctor = (id: string) => {
+    const token = localStorage.getItem("hospitalToken")
+    if (!token) return
+
+    fetch(`/api/doctors/delete?doctorId=${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+      .then(({ ok }) => {
+        if (ok) setDoctors((prev) => prev.filter((d) => d._id !== String(id)))
+      })
+      .catch((err) => console.error("Failed to delete doctor:", err))
   }
 
   const handleCancel = () => {
     setIsAdding(false)
     setEditingId(null)
-    setNewDoctor({ name: "", specialty: "", qualifications: "", phone: "", email: "" })
+    setNewDoctor({ name: "", specialization: "", qualification: "", experience: "", phone: "", email: "" })
+  }
+
+  const handleToggleActive = async (doctor: Doctor, nextState: boolean) => {
+    try {
+      const token = localStorage.getItem("hospitalToken")
+      if (!token) return
+
+      const res = await fetch("/api/doctors/update", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ doctorId: doctor._id, isActive: nextState }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to update availability")
+
+      setDoctors((prev) => prev.map((d) => (d._id === doctor._id ? data.doctor : d)))
+    } catch (err) {
+      console.error("Failed to toggle availability:", err)
+    }
   }
 
   const handleLogout = () => {
-    localStorage.removeItem("token")
+    localStorage.removeItem("hospitalToken")
     localStorage.removeItem("userType")
     localStorage.removeItem("hospitalId")
     localStorage.removeItem("hospitalData")
@@ -183,8 +262,8 @@ export default function DoctorsManagement() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Specialty *</label>
                   <input
                     type="text"
-                    name="specialty"
-                    value={newDoctor.specialty}
+                    name="specialization"
+                    value={newDoctor.specialization}
                     onChange={handleInputChange}
                     placeholder="e.g., Cardiology"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -195,12 +274,24 @@ export default function DoctorsManagement() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Qualifications *</label>
                   <input
                     type="text"
-                    name="qualifications"
-                    value={newDoctor.qualifications}
+                    name="qualification"
+                    value={newDoctor.qualification}
                     onChange={handleInputChange}
                     placeholder="MD, Board Certified"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Experience (years)</label>
+                  <input
+                    type="number"
+                    name="experience"
+                    value={newDoctor.experience}
+                    onChange={handleInputChange}
+                    placeholder="e.g., 5"
+                    min="0"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
                 <div>
@@ -241,9 +332,11 @@ export default function DoctorsManagement() {
 
         {/* Doctors List */}
         <div className="grid gap-6">
-          {doctors.length > 0 ? (
+          {loading && <Card className="p-6 text-gray-600">Loading doctors…</Card>}
+          {error && <Card className="p-6 text-red-600">{error}</Card>}
+          {!loading && !error && doctors.length > 0 ? (
             doctors.map((doctor) => (
-              <Card key={doctor.id} className="p-6 hover:shadow-lg transition">
+              <Card key={doctor._id} className="p-6 hover:shadow-lg transition">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-4 flex-1">
                     <div className="bg-emerald-100 p-3 rounded-lg flex-shrink-0">
@@ -251,8 +344,14 @@ export default function DoctorsManagement() {
                     </div>
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold text-gray-900">{doctor.name}</h3>
-                      <p className="text-emerald-600 font-medium mt-1">{doctor.specialty}</p>
-                      <p className="text-sm text-gray-600 mt-2">{doctor.qualifications}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-emerald-600 font-medium">{doctor.specialization}</p>
+                        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${doctor.isActive ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-700"}`}>
+                          {doctor.isActive ? "Available" : "Not available"}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-2">{doctor.qualification}</p>
+                      <p className="text-sm text-gray-500 mt-1">Experience: {doctor.experience || 0} yrs</p>
                       <div className="flex gap-4 mt-3 text-sm text-gray-500">
                         <span>📞 {doctor.phone}</span>
                         {doctor.email && <span>📧 {doctor.email}</span>}
@@ -260,6 +359,22 @@ export default function DoctorsManagement() {
                     </div>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={doctor.isActive ? "text-gray-600 bg-transparent" : "text-emerald-700 bg-transparent"}
+                      onClick={() => handleToggleActive(doctor, !doctor.isActive)}
+                    >
+                      {doctor.isActive ? (
+                        <>
+                          <PauseCircle className="w-4 h-4 mr-1" /> Not Available
+                        </>
+                      ) : (
+                        <>
+                          <PlayCircle className="w-4 h-4 mr-1" /> Available
+                        </>
+                      )}
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -272,7 +387,7 @@ export default function DoctorsManagement() {
                       variant="outline"
                       size="sm"
                       className="text-red-600 bg-transparent"
-                      onClick={() => handleDeleteDoctor(doctor.id)}
+                      onClick={() => handleDeleteDoctor(doctor._id)}
                     >
                       <Trash2 className="w-4 h-4 mr-1" /> Delete
                     </Button>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import connect from "@/lib/db";
 import Hospital from "@/lib/models/Hospital";
+import Patient from "@/lib/models/Patient";
 import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
@@ -43,15 +44,17 @@ export async function GET(req: NextRequest) {
     }
     // If 'all' or no status, don't filter by verification
 
-    // Fetch all hospitals (for admin)
-    const hospitals = await Hospital.find(query)
-      .select("-password")
-      .sort({ createdAt: -1 });
+    // Fetch hospitals and patients count (for admin)
+    const [hospitals, patientCount] = await Promise.all([
+      Hospital.find(query).select("-password").sort({ createdAt: -1 }),
+      Patient.countDocuments(),
+    ]);
 
     const stats = {
       total: hospitals.length,
       verified: hospitals.filter(h => h.isVerified).length,
       unverified: hospitals.filter(h => !h.isVerified).length,
+      patients: patientCount,
     };
 
     return NextResponse.json(

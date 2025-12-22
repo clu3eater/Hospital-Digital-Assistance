@@ -6,7 +6,7 @@ import mongoose from "mongoose";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
     await connect();
 
@@ -22,43 +22,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
-    const patientId = decoded.patientId;
+    const patientId = decoded?.patientId;
     if (!patientId) {
       return NextResponse.json({ error: "Invalid token: missing patientId" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { hospitalId, rating, comment } = body;
+    const reviews = await Review.find({ patientId: new mongoose.Types.ObjectId(patientId) })
+      .populate("hospitalId", "hospitalName city")
+      .sort({ createdAt: -1 });
 
-    if (!hospitalId || !rating || !comment) {
-      return NextResponse.json(
-        { error: "All fields are required" },
-        { status: 400 }
-      );
-    }
-
-    const newReview = await Review.create({
-      patientId: new mongoose.Types.ObjectId(patientId),
-      hospitalId: new mongoose.Types.ObjectId(hospitalId),
-      rating,
-      comment,
-    });
-
-    const populatedReview = await Review.findById(newReview._id)
-      .populate("patientId", "fullName")
-      .populate("hospitalId", "hospitalName");
+    const averageRating = reviews.length
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+      : 0;
 
     return NextResponse.json(
       {
-        message: "Review submitted successfully",
-        review: populatedReview,
+        success: true,
+        reviews,
+        averageRating,
       },
-      { status: 201 }
+      { status: 200 }
     );
   } catch (error: any) {
-    console.error("Create review error:", error);
+    console.error("Fetch patient reviews error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to create review" },
+      { error: error.message || "Failed to fetch reviews" },
       { status: 500 }
     );
   }

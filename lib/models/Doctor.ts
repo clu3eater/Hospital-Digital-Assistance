@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from "mongoose";
+import "@/lib/models/Hospital"; // ensure Hospital model is registered for refs
 
 export interface IDoctor extends Document {
   hospitalId: mongoose.Types.ObjectId;

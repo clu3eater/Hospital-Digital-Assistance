@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Heart, LogOut, Plus, Calendar, Loader2 } from "lucide-react"
+import { Heart, LogOut, Plus, Calendar, Loader2, RefreshCw, CheckCircle } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { PatientDrawer } from "@/components/patient/patient-drawer"
@@ -24,14 +24,92 @@ interface Appointment {
   reason: string
 }
 
+// Polling interval in milliseconds (10 seconds)
+const POLLING_INTERVAL = 10000
+
 export default function PatientDashboard() {
   const router = useRouter()
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [patientName, setPatientName] = useState("")
+  const [statusUpdateAlert, setStatusUpdateAlert] = useState<string | null>(null)
+  const [lastRefresh, setLastRefresh] = useState<string>("") // Avoid Date for hydration
+  const [isMounted, setIsMounted] = useState(false)
+  const previousStatuses = useRef<Map<string, string>>(new Map())
+  const isInitialLoad = useRef<boolean>(true)
+
+  const fetchAppointments = useCallback(async (token: string, isBackground = false) => {
+    try {
+      if (!isBackground) {
+        setError(null)
+      }
+      const response = await fetch("/api/appointments/patient", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      })
+      const data = await response.json()
+
+      if (response.ok) {
+        // Get upcoming appointments only (pending or confirmed, not past dates)
+        const today = new Date()
+        today.setHours(0, 0, 0, 0) // Start of today
+        
+        const upcoming = data.appointments.filter(
+          (apt: Appointment) => {
+            const aptDate = new Date(apt.appointmentDate)
+            aptDate.setHours(0, 0, 0, 0)
+            return (
+              (apt.status === "pending" || apt.status === "confirmed") &&
+              aptDate >= today
+            )
+          }
+        )
+
+        // Check for status changes (only after initial load)
+        if (!isInitialLoad.current) {
+          upcoming.forEach((apt: Appointment) => {
+            const prevStatus = previousStatuses.current.get(apt._id)
+            if (prevStatus && prevStatus !== apt.status) {
+              if (apt.status === "confirmed") {
+                setStatusUpdateAlert(`Your appointment at ${apt.hospitalId?.hospitalName} has been confirmed!`)
+                setTimeout(() => setStatusUpdateAlert(null), 5000)
+              }
+            }
+          })
+        }
+
+        // Update previous statuses
+        previousStatuses.current.clear()
+        upcoming.forEach((apt: Appointment) => {
+          previousStatuses.current.set(apt._id, apt.status)
+        })
+        isInitialLoad.current = false
+
+        setAppointments(upcoming)
+        setLastRefresh(new Date().toLocaleTimeString())
+      } else if (data.error) {
+        if (!isBackground) {
+          setError(data.error)
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch appointments:", error)
+      if (!isBackground) {
+        setError("Failed to load appointments")
+      }
+    } finally {
+      if (!isBackground) {
+        setLoading(false)
+      }
+    }
+  }, [])
 
   useEffect(() => {
-    const token = localStorage.getItem("token")
+    setIsMounted(true)
+    
+    const token = localStorage.getItem("patientToken")
+    // Only require the patient token; userType may change if another role logs in on the same browser
     if (!token) {
       router.push("/patient/login")
       return
@@ -43,35 +121,33 @@ export default function PatientDashboard() {
       setPatientName(patient.fullName)
     }
 
+    // Initial fetch
     fetchAppointments(token)
-  }, [router])
 
-  const fetchAppointments = async (token: string) => {
-    try {
-      const response = await fetch("/api/appointments/patient", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      const data = await response.json()
-
-      if (response.ok) {
-        // Get upcoming appointments only
-        const upcoming = data.appointments.filter(
-          (apt: Appointment) => 
-            apt.status !== "completed" && 
-            apt.status !== "cancelled" &&
-            new Date(apt.appointmentDate) >= new Date()
-        )
-        setAppointments(upcoming)
+    // Set up polling for real-time updates
+    const pollInterval = setInterval(() => {
+      const currentToken = localStorage.getItem("patientToken")
+      if (currentToken) {
+        fetchAppointments(currentToken, true) // Background fetch
       }
-    } catch (error) {
-      console.error("Failed to fetch appointments:", error)
-    } finally {
-      setLoading(false)
+    }, POLLING_INTERVAL)
+
+    // Cleanup on unmount
+    return () => {
+      clearInterval(pollInterval)
+    }
+  }, [router, fetchAppointments])
+
+  const handleManualRefresh = () => {
+    const token = localStorage.getItem("patientToken")
+    if (token) {
+      setLoading(true)
+      fetchAppointments(token)
     }
   }
 
   const handleCancel = async (id: string) => {
-    const token = localStorage.getItem("token")
+    const token = localStorage.getItem("patientToken")
     if (!token) return
 
     try {
@@ -96,24 +172,67 @@ export default function PatientDashboard() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem("token")
+    localStorage.removeItem("patientToken")
     localStorage.removeItem("userType")
+    localStorage.removeItem("patientData")
     router.push("/")
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Status Update Alert Banner */}
+      {statusUpdateAlert && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-emerald-600 text-white py-3 px-4 flex items-center justify-center gap-3 shadow-lg">
+          <CheckCircle className="w-5 h-5" />
+          <span className="font-medium">{statusUpdateAlert}</span>
+          <Button 
+            size="sm" 
+            variant="secondary" 
+            onClick={() => setStatusUpdateAlert(null)}
+            className="ml-4"
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
+
       {/* Navigation */}
-      <nav className="bg-white border-b border-blue-100">
+      <nav className={`bg-white border-b border-blue-100 ${statusUpdateAlert ? 'mt-12' : ''}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <PatientDrawer patientName={patientName} />
             <Heart className="w-8 h-8 text-blue-600" />
             <span className="text-2xl font-bold text-blue-600">MediConnect</span>
           </div>
-          <Button variant="outline" onClick={handleLogout} className="hidden md:flex">
-            <LogOut className="w-4 h-4 mr-2" /> Logout
-          </Button>
+          <div className="flex items-center gap-3">
+            {/* Live Status Indicator */}
+            {isMounted && (
+              <div className="hidden md:flex items-center gap-2 text-sm text-gray-500">
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                  Live
+                </span>
+                {lastRefresh && (
+                  <span className="text-xs">
+                    {lastRefresh}
+                  </span>
+                )}
+              </div>
+            )}
+            {/* Manual Refresh Button */}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleManualRefresh}
+              disabled={loading}
+              title="Refresh data"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button variant="outline" onClick={handleLogout} className="hidden md:flex">
+              <LogOut className="w-4 h-4 mr-2" /> Logout
+            </Button>
+          </div>
         </div>
       </nav>
 
@@ -138,6 +257,10 @@ export default function PatientDashboard() {
           <div className="flex justify-center items-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
           </div>
+        )}
+
+        {error && !loading && (
+          <Card className="p-6 mb-6 text-red-600">{error}</Card>
         )}
 
         {/* Appointments */}

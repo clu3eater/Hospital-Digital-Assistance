@@ -24,7 +24,7 @@ export default function PatientProfile() {
   })
 
   useEffect(() => {
-    const token = localStorage.getItem("token")
+    const token = localStorage.getItem("patientToken")
     if (!token) {
       router.push("/patient/login")
       return
@@ -64,7 +64,7 @@ export default function PatientProfile() {
   }
 
   const handleSave = async () => {
-    const token = localStorage.getItem("token")
+    const token = localStorage.getItem("patientToken")
     if (!token) return
 
     try {
@@ -88,7 +88,7 @@ export default function PatientProfile() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem("token")
+    localStorage.removeItem("patientToken")
     localStorage.removeItem("userType")
     router.push("/")
   }

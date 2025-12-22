@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       ? specialties.split(",").map((s: string) => s.trim()).filter((s: string) => s)
       : [];
 
-    // Create new hospital (auto-verified for demo purposes)
+    // Create new hospital (starts unverified; admin must approve)
     const newHospital = await Hospital.create({
       hospitalName,
       email,
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       city: city || "",
       address,
       specialties: specialtiesArray,
-      isVerified: true, // Auto-verify for demo/development
+      isVerified: false,
     });
 
     // Remove password from response

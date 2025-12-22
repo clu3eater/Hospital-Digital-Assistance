@@ -19,7 +19,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem("token")
+    const token = localStorage.getItem("adminToken")
     const userType = localStorage.getItem("userType")
     
     if (!token || userType !== "admin") {
@@ -48,7 +48,7 @@ export default function AdminDashboard() {
           total: data.stats.total,
           verified: data.stats.verified,
           unverified: data.stats.unverified,
-          patients: 0, // You can add patient count API later
+          patients: data.stats.patients || 0,
         })
       }
     } catch (error) {
@@ -59,7 +59,7 @@ export default function AdminDashboard() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem("token")
+    localStorage.removeItem("adminToken")
     localStorage.removeItem("userType")
     localStorage.removeItem("adminData")
     router.push("/admin/login")

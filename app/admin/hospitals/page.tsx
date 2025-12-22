@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -20,7 +20,7 @@ interface Hospital {
   createdAt: string
 }
 
-export default function AdminHospitals() {
+function AdminHospitalsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [adminName, setAdminName] = useState("")
@@ -32,7 +32,7 @@ export default function AdminHospitals() {
   const [processingId, setProcessingId] = useState<string | null>(null)
 
   useEffect(() => {
-    const token = localStorage.getItem("token")
+    const token = localStorage.getItem("adminToken")
     const userType = localStorage.getItem("userType")
 
     if (!token || userType !== "admin") {
@@ -93,7 +93,7 @@ export default function AdminHospitals() {
   }
 
   const handleApprove = async (hospitalId: string) => {
-    const token = localStorage.getItem("token")
+    const token = localStorage.getItem("adminToken")
     if (!token) return
 
     setProcessingId(hospitalId)
@@ -123,7 +123,7 @@ export default function AdminHospitals() {
   }
 
   const handleReject = async (hospitalId: string) => {
-    const token = localStorage.getItem("token")
+    const token = localStorage.getItem("adminToken")
     if (!token) return
 
     setProcessingId(hospitalId)
@@ -153,7 +153,7 @@ export default function AdminHospitals() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem("token")
+    localStorage.removeItem("adminToken")
     localStorage.removeItem("userType")
     localStorage.removeItem("adminData")
     router.push("/admin/login")
@@ -343,5 +343,17 @@ export default function AdminHospitals() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function AdminHospitals() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+      </div>
+    }>
+      <AdminHospitalsContent />
+    </Suspense>
   )
 }

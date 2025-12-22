@@ -4,12 +4,13 @@ import Doctor from "@/lib/models/Doctor";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connect();
 
-    const doctors = await Doctor.find({ hospitalId: params.id, isActive: true })
+    const { id } = await params;
+    const doctors = await Doctor.find({ hospitalId: id, isActive: true })
       .select("-__v");
 
     return NextResponse.json(
