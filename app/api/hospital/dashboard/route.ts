@@ -4,6 +4,7 @@ import Appointment from "@/lib/models/Appointment";
 import Doctor from "@/lib/models/Doctor";
 import Review from "@/lib/models/Review";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
@@ -17,7 +18,12 @@ export async function GET(req: NextRequest) {
     }
 
     const decoded: any = jwt.verify(token, JWT_SECRET);
-    const hospitalId = decoded.hospitalId;
+    const hospitalIdString = decoded.hospitalId;
+
+    console.log("Dashboard stats - hospitalId from JWT:", hospitalIdString);
+
+    // Convert to ObjectId for proper matching (consistent with other routes)
+    const hospitalId = new mongoose.Types.ObjectId(hospitalIdString);
 
     // Get appointment counts
     const [pending, confirmed, completed, totalAppointments] = await Promise.all([
@@ -26,6 +32,8 @@ export async function GET(req: NextRequest) {
       Appointment.countDocuments({ hospitalId, status: "completed" }),
       Appointment.countDocuments({ hospitalId }),
     ]);
+
+    console.log("Dashboard stats counts:", { pending, confirmed, completed, totalAppointments });
 
     // Get doctor count
     const doctors = await Doctor.countDocuments({ hospitalId, isActive: true });

@@ -73,10 +73,18 @@ export async function GET(req: NextRequest) {
       query.status = status;
     }
 
+    console.log("Fetching appointments for hospital:", {
+      hospitalId: hospitalId,
+      hospitalObjId: hospitalObjId.toString(),
+      query,
+    });
+
     const appointments = await Appointment.find(query)
       .populate("patientId", "fullName email phone")
       .populate("doctorId", "name specialization")
       .sort({ appointmentDate: 1, appointmentTime: 1 });
+
+    console.log(`Found ${appointments.length} appointments for hospital ${hospitalId}`);
 
     return NextResponse.json(
       {

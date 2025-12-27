@@ -73,6 +73,10 @@ export default function HospitalDetail() {
       const hospitalRes = await fetch(`/api/hospital/${encodeURIComponent(hospitalId)}`)
       const hospitalData = await hospitalRes.json()
       if (!hospitalRes.ok || !hospitalData.hospital) throw new Error(hospitalData.error || "Hospital not found")
+      console.log("Fetched hospital data:", {
+        _id: hospitalData.hospital._id,
+        name: hospitalData.hospital.hospitalName
+      });
       setHospital(hospitalData.hospital)
 
       const doctorsRes = await fetch(`/api/doctors/${encodeURIComponent(hospitalId)}`)
@@ -122,20 +126,24 @@ export default function HospitalDetail() {
 
     setBookingLoading(true)
     try {
+      const appointmentPayload = {
+        hospitalId: hospital?._id,
+        doctorId: selectedDoctorId,
+        appointmentDate,
+        appointmentTime,
+        reason: reason.trim(),
+        visitType,
+      };
+
+      console.log("Booking appointment with payload:", appointmentPayload);
+
       const res = await fetch("/api/appointments/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          hospitalId: hospital?._id,
-          doctorId: selectedDoctorId,
-          appointmentDate,
-          appointmentTime,
-          reason: reason.trim(),
-          visitType,
-        }),
+        body: JSON.stringify(appointmentPayload),
       })
 
       const data = await res.json()
@@ -198,212 +206,211 @@ export default function HospitalDetail() {
 
         {!loading && !error && hospital && (
           <>
-        {/* Header */}
-        <div className="mb-12">
-          <h1 className="text-4xl font-bold mb-4">{hospital.hospitalName}</h1>
+            {/* Header */}
+            <div className="mb-12">
+              <h1 className="text-4xl font-bold mb-4">{hospital.hospitalName}</h1>
 
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* Hospital Info */}
-            <div>
-              <div className="space-y-4 mb-6">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-gray-600" />
-                  <span>
-                    {hospital.city ? `${hospital.city} - ` : ""}
-                    {hospital.address}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Phone className="w-5 h-5 text-gray-600" />
-                  <span>{hospital.phone}</span>
-                </div>
-
-                {hospital.isVerified && (
-                  <span className="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-                    ✓ Verified Hospital
-                  </span>
-                )}
-              </div>
-
-              {hospital.specialties && hospital.specialties.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="font-semibold mb-3">Specialties</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {hospital.specialties.map((spec) => (
-                      <span key={spec} className="px-3 py-1 bg-blue-100 text-blue-700 text-sm rounded-full">
-                        {spec}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <p className="text-gray-600 mb-6">Book an appointment with one of the available doctors below.</p>
-            </div>
-
-            {/* Booking Section */}
-            <Card className="p-6 h-fit">
-              <h3 className="text-xl font-bold mb-4">Book an Appointment</h3>
-
-              {bookingSuccess && (
-                <div className="mb-4 p-3 bg-green-100 text-green-800 rounded-md text-sm">
-                  Appointment booked successfully! Redirecting to your appointments...
-                </div>
-              )}
-              {bookingError && (
-                <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md text-sm">
-                  {bookingError}
-                </div>
-              )}
-
-              <div className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-8">
+                {/* Hospital Info */}
                 <div>
-                  <label className="block text-sm font-medium mb-2">Select Doctor</label>
-                  <select 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                    value={selectedDoctorId}
-                    onChange={(e) => setSelectedDoctorId(e.target.value)}
-                  >
-                    <option value="">Choose a doctor...</option>
-                    {doctors.filter(doc => doc.isActive).map((doc) => (
-                      <option key={doc._id} value={doc._id}>
-                        {doc.name} - {doc.specialization}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Select Date</label>
-                  <input 
-                    type="date" 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                    value={appointmentDate}
-                    onChange={(e) => setAppointmentDate(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Select Time</label>
-                  <select 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                    value={appointmentTime}
-                    onChange={(e) => setAppointmentTime(e.target.value)}
-                  >
-                    <option value="09:00 AM">09:00 AM</option>
-                    <option value="10:00 AM">10:00 AM</option>
-                    <option value="11:00 AM">11:00 AM</option>
-                    <option value="12:00 PM">12:00 PM</option>
-                    <option value="02:00 PM">02:00 PM</option>
-                    <option value="03:00 PM">03:00 PM</option>
-                    <option value="04:00 PM">04:00 PM</option>
-                    <option value="05:00 PM">05:00 PM</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Visit Type</label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="visitType"
-                        value="in_person"
-                        checked={visitType === "in_person"}
-                        onChange={() => setVisitType("in_person")}
-                        className="text-blue-600"
-                      />
-                      <span className="text-sm">In-Person</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="visitType"
-                        value="telehealth"
-                        checked={visitType === "telehealth"}
-                        onChange={() => setVisitType("telehealth")}
-                        className="text-blue-600"
-                      />
-                      <Video className="w-4 h-4" />
-                      <span className="text-sm">Telehealth</span>
-                    </label>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Reason for Visit</label>
-                  <textarea
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                    rows={3}
-                    placeholder="Describe your symptoms or reason for the appointment..."
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                  />
-                </div>
-
-                <Button 
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                  onClick={handleBookAppointment}
-                  disabled={bookingLoading}
-                >
-                  {bookingLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Booking...
-                    </>
-                  ) : (
-                    <>
-                      <Calendar className="w-4 h-4 mr-2" /> Book Appointment
-                    </>
-                  )}
-                </Button>
-              </div>
-            </Card>
-          </div>
-        </div>
-
-        {/* Doctors */}
-        <div>
-          <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-            <h2 className="text-2xl font-bold">Doctors</h2>
-            <span className="text-sm text-gray-600">{doctors.length} listed</span>
-          </div>
-
-          {doctors.length === 0 && <Card className="p-6">No doctors listed yet.</Card>}
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {doctors.map((doc) => (
-              <Card key={doc._id} className="p-6 hover:shadow-lg transition-shadow">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center font-semibold uppercase">
-                    {doc.name?.slice(0, 2) || "Dr"}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <h4 className="text-lg font-semibold leading-tight">{doc.name}</h4>
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          doc.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {doc.isActive ? "Available" : "Not Available"}
+                  <div className="space-y-4 mb-6">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-5 h-5 text-gray-600" />
+                      <span>
+                        {hospital.city ? `${hospital.city} - ` : ""}
+                        {hospital.address}
                       </span>
                     </div>
-                    <p className="text-gray-600 text-sm">{doc.specialization}</p>
-                    {doc.qualification && (
-                      <p className="text-sm text-gray-500 mt-1">{doc.qualification}</p>
-                    )}
-                    {typeof doc.experience === "number" && (
-                      <p className="text-sm text-gray-500">Experience: {doc.experience} yrs</p>
+
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-5 h-5 text-gray-600" />
+                      <span>{hospital.phone}</span>
+                    </div>
+
+                    {hospital.isVerified && (
+                      <span className="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                        ✓ Verified Hospital
+                      </span>
                     )}
                   </div>
+
+                  {hospital.specialties && hospital.specialties.length > 0 && (
+                    <div className="mb-4">
+                      <h3 className="font-semibold mb-3">Specialties</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {hospital.specialties.map((spec) => (
+                          <span key={spec} className="px-3 py-1 bg-blue-100 text-blue-700 text-sm rounded-full">
+                            {spec}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-gray-600 mb-6">Book an appointment with one of the available doctors below.</p>
                 </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-        </>
+
+                {/* Booking Section */}
+                <Card className="p-6 h-fit">
+                  <h3 className="text-xl font-bold mb-4">Book an Appointment</h3>
+
+                  {bookingSuccess && (
+                    <div className="mb-4 p-3 bg-green-100 text-green-800 rounded-md text-sm">
+                      Appointment booked successfully! Redirecting to your appointments...
+                    </div>
+                  )}
+                  {bookingError && (
+                    <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md text-sm">
+                      {bookingError}
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Select Doctor</label>
+                      <select
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        value={selectedDoctorId}
+                        onChange={(e) => setSelectedDoctorId(e.target.value)}
+                      >
+                        <option value="">Choose a doctor...</option>
+                        {doctors.filter(doc => doc.isActive).map((doc) => (
+                          <option key={doc._id} value={doc._id}>
+                            {doc.name} - {doc.specialization}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Select Date</label>
+                      <input
+                        type="date"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        value={appointmentDate}
+                        onChange={(e) => setAppointmentDate(e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Select Time</label>
+                      <select
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        value={appointmentTime}
+                        onChange={(e) => setAppointmentTime(e.target.value)}
+                      >
+                        <option value="09:00 AM">09:00 AM</option>
+                        <option value="10:00 AM">10:00 AM</option>
+                        <option value="11:00 AM">11:00 AM</option>
+                        <option value="12:00 PM">12:00 PM</option>
+                        <option value="02:00 PM">02:00 PM</option>
+                        <option value="03:00 PM">03:00 PM</option>
+                        <option value="04:00 PM">04:00 PM</option>
+                        <option value="05:00 PM">05:00 PM</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Visit Type</label>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="visitType"
+                            value="in_person"
+                            checked={visitType === "in_person"}
+                            onChange={() => setVisitType("in_person")}
+                            className="text-blue-600"
+                          />
+                          <span className="text-sm">In-Person</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="visitType"
+                            value="telehealth"
+                            checked={visitType === "telehealth"}
+                            onChange={() => setVisitType("telehealth")}
+                            className="text-blue-600"
+                          />
+                          <Video className="w-4 h-4" />
+                          <span className="text-sm">Telehealth</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Reason for Visit</label>
+                      <textarea
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        rows={3}
+                        placeholder="Describe your symptoms or reason for the appointment..."
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                      />
+                    </div>
+
+                    <Button
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      onClick={handleBookAppointment}
+                      disabled={bookingLoading}
+                    >
+                      {bookingLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Booking...
+                        </>
+                      ) : (
+                        <>
+                          <Calendar className="w-4 h-4 mr-2" /> Book Appointment
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </Card>
+              </div>
+            </div>
+
+            {/* Doctors */}
+            <div>
+              <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+                <h2 className="text-2xl font-bold">Doctors</h2>
+                <span className="text-sm text-gray-600">{doctors.length} listed</span>
+              </div>
+
+              {doctors.length === 0 && <Card className="p-6">No doctors listed yet.</Card>}
+
+              <div className="grid md:grid-cols-3 gap-6">
+                {doctors.map((doc) => (
+                  <Card key={doc._id} className="p-6 hover:shadow-lg transition-shadow">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center font-semibold uppercase">
+                        {doc.name?.slice(0, 2) || "Dr"}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="text-lg font-semibold leading-tight">{doc.name}</h4>
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-xs font-semibold ${doc.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
+                              }`}
+                          >
+                            {doc.isActive ? "Available" : "Not Available"}
+                          </span>
+                        </div>
+                        <p className="text-gray-600 text-sm">{doc.specialization}</p>
+                        {doc.qualification && (
+                          <p className="text-sm text-gray-500 mt-1">{doc.qualification}</p>
+                        )}
+                        {typeof doc.experience === "number" && (
+                          <p className="text-sm text-gray-500">Experience: {doc.experience} yrs</p>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

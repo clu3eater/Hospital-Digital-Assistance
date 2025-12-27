@@ -30,80 +30,105 @@ A comprehensive web-based platform for managing hospital services, patient appoi
 - **API**: Next.js Route Handlers
 - **Hosting**: Vercel (recommended)
 
-## Getting Started
+## 🚀 Getting Started
 
-1. **Install dependencies**:
-   \`\`\`bash
+### Prerequisites
+
+- **Node.js**: v18.0.0 or higher
+- **npm**: v9.0.0 or higher
+- **MongoDB**: A running instance (Local or MongoDB Atlas)
+
+### Quick Setup
+
+#### Windows
+Double-click `setup.bat` or run:
+```powershell
+.\setup.bat
+```
+
+#### Linux / macOS
+Run the following commands:
+```bash
+chmod +x setup.sh
+./setup.sh
+```
+
+### Manual Installation
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/clu3eater/Hospital-Digital-Assistance.git
+   cd "Hospital Digital Assistance system"
+   ```
+
+2. **Install dependencies**:
+   ```bash
    npm install
-   \`\`\`
+   ```
 
-2. **Run development server**:
-   \`\`\`bash
+3. **Configure Environment Variables**:
+   Copy the example environment file and update it with your credentials:
+   ```bash
+   cp .env.example .env
+   ```
+   Edit `.env` and provide your `DB_URL` (MongoDB connection string).
+
+4. **Run the development server**:
+   ```bash
    npm run dev
-   \`\`\`
+   ```
 
-3. **Access the application**:
-   - Open [http://localhost:3000](http://localhost:3000)
-   - Patient: Register at `/patient/register` or login at `/patient/login`
-   - Hospital: Register at `/hospital/register` or login at `/hospital/login`
+5. **Open the application**:
+   Navigate to [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Project Structure
+---
 
-\`\`\`
+## ⚙️ Configuration
+
+The system uses the following environment variables. Ensure they are set in your `.env` file:
+
+| Variable | Description | Default / Example |
+| :--- | :--- | :--- |
+| `DB_URL` | MongoDB Connection String | `mongodb://localhost:27017/HDAS` |
+| `JWT_SECRET` | Secret key for JWT signing | `your_secret_key` |
+| `NEXT_PUBLIC_API_URL` | Frontend API Base URL | `http://localhost:3000/api` |
+
+---
+
+## 🛠️ Project Structure
+
+```text
 app/
-├── page.tsx                    # Home page
-├── patient/
-│   ├── register/              # Patient registration
-│   ├── login/                 # Patient login
-│   ├── dashboard/             # Patient dashboard
-│   ├── profile/               # Patient profile & health info
-│   ├── appointments/          # Appointments management
-│   └── health-records/        # Health records
-├── hospital/
-│   ├── register/              # Hospital registration
-│   ├── login/                 # Hospital login
-│   ├── dashboard/             # Hospital admin dashboard
-│   ├── settings/              # Hospital settings
-│   ├── doctors/               # Doctor management
-│   ├── reviews/               # Review management
-│   └── [id]/
-│       ├── page.tsx           # Hospital details
-│       └── reviews/           # Hospital reviews
-├── hospitals/                 # Hospital listing & search
-├── appointments/[id]/
-│   └── review/                # Appointment review form
-└── api/
-    ├── auth/                  # Authentication endpoints
-    ├── patient/               # Patient APIs
-    ├── hospital/              # Hospital APIs
-    ├── appointments/          # Appointment APIs
-    └── reviews/               # Review APIs
-\`\`\`
+├── api/                # Next.js Route Handlers (Backend)
+├── patient/            # Patient-facing pages
+├── hospital/           # Hospital-facing pages
+└── hospitals/          # Public hospital listings
+components/             # Shared UI components (Radix UI + Tailwind)
+lib/
+├── models/             # Mongoose schemas (Patient, Hospital, Doctor, etc.)
+├── db.ts               # Database connection logic
+└── utils.ts            # Utility functions
+public/                 # Static assets
+```
 
-## Features Roadmap
+---
 
-- MongoDB integration for data persistence
-- Email/SMS notifications for appointments
-- Payment integration for services
-- Video consultation support
-- Advanced analytics dashboard
-- Mobile app development
+## 📈 Roadmap
 
-## Environment Variables
-
-For production deployment, configure:
-- `DATABASE_URL` - MongoDB connection string (future)
-- `JWT_SECRET` - JWT token secret
-- `NEXT_PUBLIC_API_URL` - API endpoint URL
+- [ ] Email/SMS notifications for appointments
+- [ ] Stripe/Razorpay payment gateway integration
+- [ ] Real-time video consultation via WebRTC
+- [ ] PWA support for mobile devices
+- [ ] Multi-language support (i18n)
 
 ## Deployment
 
 Deploy to Vercel:
-\`\`\`bash
+```bash
 npm run build
 vercel
-\`\`\`
+```
 
-## License
+## 📄 License
 
-MIT
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

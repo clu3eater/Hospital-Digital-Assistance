@@ -50,12 +50,21 @@ export async function POST(req: NextRequest) {
 
     const sanitizedPreVisit = Array.isArray(preVisitQuestions)
       ? preVisitQuestions
-          .filter((item: any) => item && typeof item.question === "string" && item.question.trim().length > 0)
-          .map((item: any) => ({
-            question: item.question.trim(),
-            ...(item.answer && typeof item.answer === "string" ? { answer: item.answer.trim() } : {}),
-          }))
+        .filter((item: any) => item && typeof item.question === "string" && item.question.trim().length > 0)
+        .map((item: any) => ({
+          question: item.question.trim(),
+          ...(item.answer && typeof item.answer === "string" ? { answer: item.answer.trim() } : {}),
+        }))
       : undefined;
+
+    console.log("Creating appointment with:", {
+      patientId,
+      hospitalId,
+      doctorId,
+      appointmentDate,
+      appointmentTime,
+      status: "pending",
+    });
 
     const newAppointment = await Appointment.create({
       patientId: new mongoose.Types.ObjectId(patientId),
@@ -68,6 +77,13 @@ export async function POST(req: NextRequest) {
       visitType: normalizedVisitType,
       meetingUrl: meetingUrl ? String(meetingUrl).trim() : undefined,
       preVisitQuestions: sanitizedPreVisit,
+    });
+
+    console.log("Appointment created successfully:", {
+      _id: newAppointment._id,
+      hospitalId: newAppointment.hospitalId,
+      patientId: newAppointment.patientId,
+      doctorId: newAppointment.doctorId,
     });
 
     const populatedAppointment = await Appointment.findById(newAppointment._id)

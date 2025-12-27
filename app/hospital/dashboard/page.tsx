@@ -49,7 +49,7 @@ export default function HospitalDashboard() {
         setLoading(true)
         setError(null)
       }
-      
+
       // Fetch stats
       const statsResponse = await fetch("/api/hospital/dashboard", {
         headers: { Authorization: `Bearer ${token}` },
@@ -87,7 +87,7 @@ export default function HospitalDashboard() {
           reason: apt.reason,
           patientPhone: apt.patientId?.phone,
         }))
-        
+
         // Check for new appointments (only after initial load)
         if (!isInitialLoad.current && formattedAppointments.length > previousAppointmentCount.current) {
           setNewAppointmentAlert(true)
@@ -95,10 +95,10 @@ export default function HospitalDashboard() {
           try {
             const audio = new Audio("/notification.mp3")
             audio.volume = 0.5
-            audio.play().catch(() => {}) // Silently fail if autoplay is blocked
-          } catch {}
+            audio.play().catch(() => { }) // Silently fail if autoplay is blocked
+          } catch { }
         }
-        
+
         previousAppointmentCount.current = formattedAppointments.length
         isInitialLoad.current = false
         setAppointments(formattedAppointments)
@@ -131,7 +131,7 @@ export default function HospitalDashboard() {
       } else if (!isBackground && confirmedData.error) {
         setError((prev) => prev || confirmedData.error)
       }
-      
+
       setLastRefresh(new Date().toLocaleTimeString())
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error)
@@ -148,17 +148,40 @@ export default function HospitalDashboard() {
   // Initial load and setup polling
   useEffect(() => {
     setIsMounted(true)
-    
+
     const token = localStorage.getItem("hospitalToken")
     const userType = localStorage.getItem("userType")
-    
+
+    console.log("Hospital Dashboard - Auth Check:", {
+      hasToken: !!token,
+      userType,
+      tokenLength: token?.length
+    });
+
     // Check if user is logged in as hospital
-    if (!token || userType !== "hospital") {
+    if (!token) {
+      console.log("No hospital token found, redirecting to login");
       localStorage.removeItem("hospitalToken")
       localStorage.removeItem("userType")
       localStorage.removeItem("hospitalData")
       router.push("/hospital/login")
       return
+    }
+
+    // Only check userType if it exists (it should be set during login)
+    if (userType && userType !== "hospital") {
+      console.log("User type mismatch:", userType, "- redirecting to login");
+      localStorage.removeItem("hospitalToken")
+      localStorage.removeItem("userType")
+      localStorage.removeItem("hospitalData")
+      router.push("/hospital/login")
+      return
+    }
+
+    // If userType is not set but token exists, set it (recovery from potential bug)
+    if (!userType) {
+      console.log("UserType not set, setting it to 'hospital'");
+      localStorage.setItem("userType", "hospital")
     }
 
     const hospitalData = localStorage.getItem("hospitalData")
@@ -292,9 +315,9 @@ export default function HospitalDashboard() {
         <div className="fixed top-0 left-0 right-0 z-50 bg-emerald-600 text-white py-3 px-4 flex items-center justify-center gap-3 shadow-lg animate-pulse">
           <Bell className="w-5 h-5" />
           <span className="font-medium">New appointment request received!</span>
-          <Button 
-            size="sm" 
-            variant="secondary" 
+          <Button
+            size="sm"
+            variant="secondary"
             onClick={() => setNewAppointmentAlert(false)}
             className="ml-4"
           >
@@ -331,9 +354,9 @@ export default function HospitalDashboard() {
               </div>
             )}
             {/* Manual Refresh Button */}
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleManualRefresh}
               disabled={loading}
               title="Refresh data"
